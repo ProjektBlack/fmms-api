@@ -1,6 +1,8 @@
 
 import { MongoClient } from 'mongodb';
 const { ObjectId } = require('mongodb');
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 //opt for just using env variable in vercel
 const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:tangpuzzy@fmms-gms.gufmo1l.mongodb.net/test";
@@ -14,6 +16,37 @@ async function connectToDatabase() {
     console.log("Connected to MongoDB.");
     return client;
 }
+
+const loginUser = async (req, res) => {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection('users'); // Assuming your users are stored in a 'users' collection
+
+        const { username, password } = req.body;
+        const user = await collection.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+            return res.status(401).json({ message: 'Invalid password' });
+        }
+        //create token
+        const secretKey = process.env.JWT_SECRET || "t@ngPuWuzZy"; // Make sure to set this environment variable
+        const token = jwt.sign({ userId: user._id, role: user.role }, secretKey, {
+            expiresIn: '2h',
+        });
+        res.status(200).json({ token });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ message: 'Error logging in.' });
+    } finally {
+        if (client) {
+            await client.close();
+            console.log("MongoDB connection closed");
+        }
+    }
+};
 
 //method for getting all data in a collection
 const getAllData = async (collectionName, req, res) => {
@@ -138,6 +171,8 @@ export default async function handler(req, res) {
             await createRecord('monthlyexpenses', req, res);
         } else if (req.url === '/expenses/yearly') {
             await createRecord('yearlyexpenses', req, res);
+        } else if (req.url === '/login') {
+            await loginUser(req, res);
         } else {
             res.status(404).json({ message: 'Not Found' });
         }
