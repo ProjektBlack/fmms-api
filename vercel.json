@@ -2,14 +2,26 @@
   "version": 2,
   "builds": [
     {
-      "src": "./index.js",
+      "src": "api/**/*.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/api/trucks/(.*)",
+      "dest": "/api/trucks.js"
+    },
+    {
+      "src": "/api/common/(.*)",
+      "dest": "/api/common.js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/"
+      "dest": "/api/index.js"
     }
   ]
 }
