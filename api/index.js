@@ -1,5 +1,7 @@
 
-import { MongoClient } from "mongodb";
+import { MongoClient } from 'mongodb';
+const { ObjectId } = require('mongodb');
+
 //opt for just using env variable in vercel
 const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:tangpuzzy@fmms-gms.gufmo1l.mongodb.net/test";
 
@@ -12,6 +14,7 @@ async function connectToDatabase() {
     console.log("Connected to MongoDB.");
     return client;
 }
+
 //method for getting all data in a collection
 const getAllData = async (collectionName, req, res) => {
     try {
@@ -72,25 +75,26 @@ const createRecord = async (collectionName, req, res) => {
     }
 };
 
-//update a record
+//update a record -- change frontend calls to use this
 const updateRecord = async (collectionName, req, res) => {
     try {
         await connectToDatabase();
         const collection = client.db().collection(collectionName);
 
         // Extract data from the request body
-        const newData = req.body;
+        const { documentId, update } = req.body;
 
-        // Extract document ID from the URL parameters
-        const documentId = req.params.id;
-
-        // Validate if newData is an object and not empty
-        if (typeof newData === 'object' && Object.keys(newData).length > 0) {
-            const result = await collection.updateOne({ _id: ObjectId(documentId) }, { $set: newData });
+        // Validate if update is an object and not empty
+        if (typeof update === 'object' && Object.keys(update).length > 0) {
+            const result = await collection.findOneAndUpdate(
+                { _id: new ObjectId(documentId) },
+                { $set: update },
+                { returnOriginal: false }
+            );
 
             res.status(200).json({
-                message: "Record updated successfully.",
-                data: result // The newly created record
+                message: "Record updated successfully",
+                data: result.value // The updated document
             });
         } else {
             res.status(400).json({
@@ -138,20 +142,20 @@ export default async function handler(req, res) {
             res.status(404).json({ message: 'Not Found' });
         }
     } else if (req.method == 'PUT') {
-        if (req.url.startsWith('/trucks/')) {
+        if (req.url.startsWith('/trucks/?id=')) {
             // Extract document ID from the URL
             const documentId = req.url.split('/').pop();
             req.params = { id: documentId };
             await updateRecord('trucks', req, res);
-        } else if (req.url.startsWith('/trips/')) {
+        } else if (req.url.startsWith('/trips/?id=')) {
             const documentId = req.url.split('/').pop();
             req.params = { id: documentId };
             await updateRecord('trips', req, res);
-        } else if (req.url.startsWith('/expenses/monthly/')) {
+        } else if (req.url.startsWith('/expenses/monthly/?id=')) {
             const documentId = req.url.split('/').pop();
             req.params = { id: documentId };
             await updateRecord('monthlyexpenses', req, res);
-        } else if (req.url.startsWith('/expenses/yearly/')) {
+        } else if (req.url.startsWith('/expenses/yearly/?id=')) {
             const documentId = req.url.split('/').pop();
             req.params = { id: documentId };
             await updateRecord('yearlyexpenses', req, res);
