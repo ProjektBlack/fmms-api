@@ -108,14 +108,14 @@ const createRecord = async (collectionName, req, res) => {
     }
 };
 
-//update a record -- change frontend calls to use this
 const updateRecord = async (collectionName, req, res) => {
     try {
         await connectToDatabase();
         const collection = client.db().collection(collectionName);
 
-        // Extract data from the request body
-        const { documentId, update } = req.body;
+        // Extract documentId from the URL and update from the request body
+        const documentId = req.params.documentId;
+        const update = req.body;
 
         // Validate if update is an object and not empty
         if (typeof update === 'object' && Object.keys(update).length > 0) {
@@ -179,20 +179,20 @@ export default async function handler(req, res) {
     } else if (req.method == 'PUT') {
         if (req.url.startsWith('/trucks/?id=')) {
             // Extract document ID from the URL
-            const documentId = req.url.split('/').pop();
-            req.params = { id: documentId };
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
             await updateRecord('trucks', req, res);
         } else if (req.url.startsWith('/trips/?id=')) {
-            const documentId = req.url.split('/').pop();
-            req.params = { id: documentId };
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
             await updateRecord('trips', req, res);
         } else if (req.url.startsWith('/expenses/monthly/?id=')) {
-            const documentId = req.url.split('/').pop();
-            req.params = { id: documentId };
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
             await updateRecord('monthlyexpenses', req, res);
         } else if (req.url.startsWith('/expenses/yearly/?id=')) {
-            const documentId = req.url.split('/').pop();
-            req.params = { id: documentId };
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
             await updateRecord('yearlyexpenses', req, res);
         } else {
             res.status(404).json({ message: 'Not Found' });
