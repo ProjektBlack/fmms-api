@@ -148,10 +148,60 @@ const updateRecord = async (collectionName, req, res) => {
     }
 };
 
+async function getSingleRecord(collectionName, req, res) {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection(collectionName);
+
+        // Extract documentId from the URL
+        const documentId = req.params.documentId;
+
+        const result = await collection.findOne({ _id: new ObjectId(documentId) });
+
+        if (result) {
+            res.status(200).json({
+                message: "Record fetched successfully",
+                data: result
+            });
+        } else {
+            res.status(404).json({
+                message: "Record not found",
+            });
+        }
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({
+            message: "Error fetching record.",
+            error: error.message,
+        });
+    } finally {
+        if (client) {
+            await client.close();
+            console.log("MongoDB connection closed");
+        }
+    }
+}
+
 // Default handler
 export default async function handler(req, res) {
     if (req.method === 'GET') {
-        if (req.url === '/trucks') {
+        if (req.url.startsWith('/trucks/?id=')) {
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await getSingleRecord('trucks', req, res);
+        } else if (req.url.startsWith('/trips/?id=')) {
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await getSingleRecord('trips', req, res);
+        } else if (req.url.startsWith('/expenses/monthly/?id=')) {
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await getSingleRecord('monthlyexpenses', req, res);
+        } else if (req.url.startsWith('/expenses/yearly/?id=')) {
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await getSingleRecord('yearlyexpenses', req, res);
+        } else if (req.url === '/trucks') {
             await getAllData('trucks', req, res);
         } else if (req.url === '/trips') {
             await getAllData('trips', req, res);
