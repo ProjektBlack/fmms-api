@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 //opt for just using env variable in vercel
-const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:tangpuzzy@fmms-gms.gufmo1l.mongodb.net/test";
+const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:tangpuzzy@fmms-gms.gufmo1l.mongodb.net/gms-db";
 
 let client;
 
@@ -182,6 +182,45 @@ async function getSingleRecord(collectionName, req, res) {
     }
 }
 
+const deleteTruckRecord = async (collectionName, req, res) => {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection(collectionName);
+
+        // Extract documentId from the URL and convert it to ObjectId
+        const documentId = new ObjectId(req.params.documentId);
+
+        // delete trips that are associated with the truck
+        await client.db().collection('trips').deleteMany({ truck: documentId });
+
+        // delete all associated expenses
+        const truck = await collection.findOne({ _id: documentId });
+
+        // issue with if expenses are empty, it cannot delete
+        if (truck && truck.expenses) {
+            const { yearlyExpenses, monthlyExpenses } = truck.expenses;
+
+            for (let yearlyExpense of yearlyExpenses) {
+                await client.db().collection('yearlyExpenses').deleteMany({ _id: new ObjectId(yearlyExpense) });
+            }
+
+            for (let monthlyExpense of monthlyExpenses) {
+                await client.db().collection('monthlyExpenses').deleteMany({ _id: new ObjectId(monthlyExpense) });
+            }
+        }
+
+        // finally, delete the truck
+        await collection.deleteOne({ _id: documentId });
+
+        // confirm deletion
+        res.status(200).json({ message: "Truck and its associated trips and expenses deleted successfully." });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+
 // Default handler
 export default async function handler(req, res) {
     if (req.method === 'GET') {
@@ -244,6 +283,27 @@ export default async function handler(req, res) {
             const documentId = req.url.split('=')[1];
             req.params = { documentId };
             await updateRecord('yearlyexpenses', req, res);
+        } else {
+            res.status(404).json({ message: 'Not Found' });
+        }
+    } else if (req.method == 'DELETE') {
+        if (req.url.startsWith('/trucks/?id=')) {
+            // Extract document ID from the URL
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await deleteTruckRecord('trucks', req, res);
+        } else if (req.url.startsWith('/trips/?id=')) {
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await deleteTripRecord('trips', req, res);
+        } else if (req.url.startsWith('/expenses/monthly/?id=')) {
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await deleteMonthlyExpense('monthlyexpenses', req, res);
+        } else if (req.url.startsWith('/expenses/yearly/?id=')) {
+            const documentId = req.url.split('=')[1];
+            req.params = { documentId };
+            await deleteYearlyExpense('yearlyexpenses', req, res);
         } else {
             res.status(404).json({ message: 'Not Found' });
         }
