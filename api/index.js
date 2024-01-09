@@ -72,6 +72,27 @@ const getAllData = async (collectionName, req, res) => {
     }
 };
 
+//get trips by year and month
+const getTripsByYearAndMonth = async (collectionName, req, res) => {
+    try {
+        await connectToDatabase();
+        console.log(req.params);
+        let { truck, year, month } = req.params;
+        truck = new ObjectId(truck);
+        month = month.charAt(0).toUpperCase() + month.slice(1).toLowerCase();
+        year = year.toString();
+        const collection = client.db().collection(collectionName);
+        const trips = await collection.find({ truck: truck, year: year, month: month }).toArray();
+        if (!trips || trips.length === 0) {
+            return res.status(404).json({ message: "There are no trips for that year and month." });
+        }
+        res.status(200).json(trips);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({ message: error.message });
+    }
+}
+
 //create a new record
 const createRecord = async (collectionName, req, res) => {
     try {
@@ -329,6 +350,9 @@ export default async function handler(req, res) {
             const documentId = req.url.split('=')[1];
             req.params = { documentId };
             await getSingleRecord('yearlyexpenses', req, res);
+        } else if (req.url.startsWith('/trips/')) {
+            const [, , truck, year, month] = req.url.split('/'); req.params = { truck, year, month };
+            await getTripsByYearAndMonth('trips', req, res);
         } else if (req.url === '/trucks') {
             await getAllData('trucks', req, res);
         } else if (req.url === '/trips') {
