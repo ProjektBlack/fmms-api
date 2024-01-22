@@ -76,7 +76,6 @@ const getAllData = async (collectionName, req, res) => {
 const getTripsByYearAndMonth = async (collectionName, req, res) => {
     try {
         await connectToDatabase();
-        console.log(req.params);
         let { truck, year, month } = req.params;
         truck = new ObjectId(truck);
         month = month.charAt(0).toUpperCase() + month.slice(1).toLowerCase();
@@ -85,6 +84,72 @@ const getTripsByYearAndMonth = async (collectionName, req, res) => {
         const trips = await collection.find({ truck: truck, year: year, month: month }).toArray();
         if (!trips || trips.length === 0) {
             return res.status(404).json({ message: "There are no trips for that year and month." });
+        }
+        res.status(200).json(trips);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({ message: error.message });
+    }
+}
+
+//get pending trips
+const getPendingTrips = async (collectionName, req, res) => {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection(collectionName);
+        const trips = await collection.find({ status: "Pending" }).toArray();
+        if (!trips || trips.length === 0) {
+            return res.status(404).json({ message: "There are no pending trips." });
+        }
+        res.status(200).json(trips);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({ message: error.message });
+    }
+}
+
+//get completed trips 
+const getCompletedTrips = async (collectionName, req, res) => {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection(collectionName);
+        const trips = await collection.find({ status: "Completed" }).toArray();
+        if (!trips || trips.length === 0) {
+            return res.status(404).json({ message: "There are no completed trips." });
+        }
+        res.status(200).json(trips);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({ message: error.message });
+    }
+}
+
+//get completed trips by month
+const getCompletedTripsByMonth = async (collectionName, month, req, res) => {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection(collectionName);
+        // Convert the first character of month to uppercase and the rest to lowercase
+        month = month.charAt(0).toUpperCase() + month.slice(1).toLowerCase();
+        const trips = await collection.find({ status: "Completed", month: month }).toArray();
+        if (!trips || trips.length === 0) {
+            return res.status(404).json({ message: `There are no completed trips for ${month}.` });
+        }
+        res.status(200).json(trips);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({ message: error.message });
+    }
+}
+
+//get completed trips by year
+const getCompletedTripsByYear = async (collectionName, year, req, res) => {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection(collectionName);
+        const trips = await collection.find({ status: "Completed", year: year }).toArray();
+        if (!trips || trips.length === 0) {
+            return res.status(404).json({ message: `There are no completed trips for ${year}.` });
         }
         res.status(200).json(trips);
     } catch (error) {
@@ -331,7 +396,7 @@ const deleteYearlyExpenses = async (collectionName, req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 }
-// Default handler
+//handler - try to use proper routing in the future, also, multiple similar urls can be grouped together or elaborated properly
 export default async function handler(req, res) {
     if (req.method === 'GET') {
         if (req.url.startsWith('/trucks/?id=')) {
@@ -350,6 +415,25 @@ export default async function handler(req, res) {
             const documentId = req.url.split('=')[1];
             req.params = { documentId };
             await getSingleRecord('yearlyexpenses', req, res);
+        } else if (req.url.startsWith('/trips/status/completed/?month=')) {
+            const month = req.url.split('=')[1];
+            if (typeof month !== 'string') {
+                return res.status(400).json({ message: "Invalid month parameter." });
+            }
+            req.params = { month };
+            await getCompletedTripsByMonth('trips', month, req, res);
+        }
+        else if (req.url.startsWith('/trips/status/completed/?year=')) {
+            const year = req.url.split('=')[1];
+            if (typeof year !== 'string') {
+                return res.status(400).json({ message: "Invalid year parameter." });
+            }
+            req.params = { year };
+            await getCompletedTripsByYear('trips', year, req, res);
+        } else if (req.url === '/trips/status/pending') {
+            await getPendingTrips('trips', req, res);
+        } else if (req.url === '/trips/status/completed') {
+            await getCompletedTrips('trips', req, res);
         } else if (req.url.startsWith('/trips/')) {
             const [, , truck, year, month] = req.url.split('/'); req.params = { truck, year, month };
             await getTripsByYearAndMonth('trips', req, res);
