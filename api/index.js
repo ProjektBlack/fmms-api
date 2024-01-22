@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 //opt for just using env variable in vercel
-const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:tangpuzzy@fmms-gms.gufmo1l.mongodb.net/gms-db";
+const mongoURI = process.env.MONGODB_URI;
 
 let client;
 
