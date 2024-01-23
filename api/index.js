@@ -48,6 +48,37 @@ const loginUser = async (req, res) => {
     }
 };
 
+//register a new user
+const registerUser = async (req, res) => {
+    try {
+        await connectToDatabase();
+        const collection = client.db().collection('users'); // Assuming your users are stored in a 'users' collection
+
+        const { username, password, role } = req.body;
+        //check if user exists
+        const existingUser = await collection.findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ message: 'User already exists.' });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = {
+            username,
+            password: hashedPassword,
+            role
+        };
+        await collection.insertOne(newUser);
+        res.status(201).json({ message: 'User created successfully.' });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ message: 'Error creating user.' });
+    } finally {
+        if (client) {
+            await client.close();
+            console.log("MongoDB connection closed");
+        }
+    }
+};
+
 //method for getting all data in a collection
 const getAllData = async (collectionName, req, res) => {
     try {
@@ -398,6 +429,13 @@ const deleteYearlyExpenses = async (collectionName, req, res) => {
 }
 //handler - try to use proper routing in the future, also, multiple similar urls can be grouped together or elaborated properly
 export default async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        return res.status(200).end();
+    }
     if (req.method === 'GET') {
         if (req.url.startsWith('/trucks/?id=')) {
             const documentId = req.url.split('=')[1];
@@ -416,6 +454,7 @@ export default async function handler(req, res) {
             req.params = { documentId };
             await getSingleRecord('yearlyexpenses', req, res);
         } else if (req.url.startsWith('/trips/status/completed/?month=')) {
+            //this needs a year parameter as well
             const month = req.url.split('=')[1];
             if (typeof month !== 'string') {
                 return res.status(400).json({ message: "Invalid month parameter." });
@@ -459,6 +498,8 @@ export default async function handler(req, res) {
             await createRecord('yearlyexpenses', req, res);
         } else if (req.url === '/login') {
             await loginUser(req, res);
+        } else if (req.url === '/register') {
+            await registerUser(req, res);
         } else {
             res.status(404).json({ message: 'Not Found' });
         }
