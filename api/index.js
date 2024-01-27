@@ -429,9 +429,32 @@ const deleteYearlyExpenses = async (collectionName, req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 }
+
+const getTruckStatus = async (req, res) => {
+    try {
+        const client = await connectToDatabase();
+        const db = client.db();
+        const trucksCollection = db.collection('trucks');
+        const tripsCollection = db.collection('trips');
+
+        const trucks = await trucksCollection.find().toArray();
+
+        const trucksWithTrips = await Promise.all(trucks.map(async (truck) => {
+            console.log(truck._id)
+            const trips = await tripsCollection.find({ truck: truck._id }).toArray();
+            return { ...truck, trips };
+        }));
+
+        res.status(200).json(trucksWithTrips);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 //handler
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     if (req.method === 'OPTIONS') {
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
@@ -439,7 +462,9 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
     if (req.method === 'GET') {
-        if (req.url.startsWith('/trucks/?id=')) {
+        if (req.url.startsWith('/trucks/status')) {
+            await getTruckStatus(req, res);
+        } else if (req.url.startsWith('/trucks/?id=')) {
             const documentId = req.url.split('=')[1];
             req.params = { documentId };
             await getSingleRecord('trucks', req, res);
